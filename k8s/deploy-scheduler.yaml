@@ -1,0 +1,115 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "2"
+  labels:
+    run: airflow-scheduler
+    version: 0
+  name: airflow-scheduler
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: airflow-scheduler
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        run: airflow-scheduler
+    spec:
+      volumes:
+      - name: airflow-home
+        emptyDir: {}
+      - name: service-account
+        secret:
+          secretName: "service-account"
+      - name: ssl-certs
+        hostPath:
+          path: /etc/ssl/certs
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      containers:
+      - image: b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.6
+        imagePullPolicy: IfNotPresent
+        name: airflow-scheduler
+        env:
+        - name: AIRFLOW_HOME
+          value: /etc/airflow
+        - name: SQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-database
+        - name: SQL_USER
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-user
+        - name: SQL_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-password
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: mysql+mysqldb://$(SQL_USER):$(SQL_PASSWORD)@airflow-db/$(SQL_DATABASE)
+        volumeMounts:
+        - name: airflow-home
+          mountPath: /home/airflow
+        - name: airflow-config
+          mountPath: /etc/airflow
+        - name: service-account
+          mountPath: /secret
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        command: ["airflow"]
+        args: ["scheduler"]
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
+        imagePullPolicy: IfNotPresent
+        name: airflow-git-sync
+        env:
+        - name: AIRFLOW_HOME
+          value: /etc/airflow
+        - name: SYNC_REPO_DAG
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: git-repo-dag
+        - name: SYNC_REPO_PLUGIN
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: git-repo-plugin
+        - name: SYNC_BRANCH
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: git-branch
+        - name: SYNC_STAGING_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: staging-bucket
+        volumeMounts:
+        - name: airflow-home
+          mountPath: /home/airflow
+        - name: airflow-config
+          mountPath: /etc/airflow
+        - name: service-account
+          mountPath: /secret
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

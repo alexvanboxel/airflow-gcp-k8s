@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "2"
+  labels:
+    run: airflow-dbinit
+  name: airflow-dbinit
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: airflow-dbinit
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        run: airflow-dbinit
+    spec:
+      volumes:
+      - name: airflow-home
+        emptyDir: {}
+      - name: service-account
+        secret:
+          secretName: "service-account"
+      - name: ssl-certs
+        hostPath:
+          path: /etc/ssl/certs
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      containers:
+      - image: b.gcr.io/airflow-gcp/airflow-dbinit:1.8.0.alpha.6
+        imagePullPolicy: IfNotPresent
+        name: airflow-dbinit
+        env:
+        - name: AIRFLOW_HOME
+          value: /etc/airflow
+        - name: C_FORCE_ROOT
+          value: "TRUE" 
+#        - name: SQL_DATABASE
+#          valueFrom:
+#            configMapKeyRef:
+#              name: airflow-settings
+#              key: sql-database
+#        - name: SQL_USER
+#          valueFrom:
+#            configMapKeyRef:
+#              name: airflow-settings
+#              key: sql-user
+#        - name: SQL_PASSWORD
+#          valueFrom:
+#            configMapKeyRef:
+#              name: airflow-settings
+#              key: sql-password
+#        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+#          value: mysql+mysqldb://$(SQL_USER):$(SQL_PASSWORD)@airflow-db/$(SQL_DATABASE)
+        volumeMounts:
+        - name: airflow-home
+          mountPath: /home/airflow
+        - name: airflow-config
+          mountPath: /etc/airflow
+        - name: service-account
+          mountPath: /secret
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        command: ["sleep"]
+        args: ["1000000"]
+        ports:
+        - containerPort: 8793
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

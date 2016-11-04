@@ -1,0 +1,67 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: airflow-db
+  name: airflow-db
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: airflow-db
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        run: airflow-db
+    spec:
+      volumes:
+      - name: service-account
+        secret:
+          secretName: "service-account"
+      - name: ssl-certs
+        hostPath:
+          path: /etc/ssl/certs
+      containers:
+      - image: b.gcr.io/airflow-gcp/airflow-db:1.8.0.alpha.6
+        volumeMounts:
+        - name: service-account 
+          mountPath: /secret/
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        command: ["/cloud_sql_proxy",
+          "-credential_file=/secret/service-account.json",
+          "-instances=$(SQL_PROJECT):$(SQL_ZONE):$(SQL_INSTANCE)=tcp:0.0.0.0:3306"]
+        imagePullPolicy: IfNotPresent
+        name: airflow-db 
+        ports:
+        - containerPort: 3306 
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        env:
+        - name: SQL_PROJECT
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-project
+        - name: SQL_ZONE
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-zone
+        - name: SQL_INSTANCE
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-instance
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
