@@ -1,0 +1,55 @@
+environments:
+  - name: production
+    namespace: default
+    database:
+      project: my-gc-project
+      zone: europe-west1
+      instance: airflow-instance
+      database: airflow
+      user: airflowproxy
+      password: secret
+    service-accounts:
+      - name: service-account.json
+        path: /Users/me/airflow/my-key-file.json
+    git:
+      branch: develop
+      repo-dag: airflow-dag
+      repo-plugin: airflow-plugin
+    staging-bucket: gs://my-bucket/airflow/libs
+    logging:
+      conn_id: gcp_default
+      bucket: gs://my-bucket/airflow/default/logs
+    webserver:
+      base_url: http://airflow-dev.example.com:8080
+      auth:
+        client_id: 00000000000000-aaaaaaaaaaaaaaaaaaaaa.apps.googleusercontent.com
+        client_secret: aABBBBBBBBCCCCCCCCCDDDDD
+        oauth_callback_route: /oauth2callback
+        domain: example.com
+  - name: development
+    namespace: dev
+    database:
+      project: my-gc-project
+      zone: europe-west1
+      instance: airflow-instance
+      database: airflow_dev
+      user: airflowproxy
+      password: secret
+    service-accounts:
+      - name: service-account.json
+        path: /Users/me/airflow/my-key-file.json
+    git:
+      branch: develop
+      repo-dag: airflow-dag
+      repo-plugin: airflow-plugin
+    staging-bucket: gs://my-bucket/airflow/libs
+    logging:
+      conn_id: gcp_default
+      bucket: gs://my-bucket/airflow/dev/logs
+    webserver:
+      base_url: http://airflow-dev.example.com:8080
+      auth:
+        client_id: 00000000000000-aaaaaaaaaaaaaaaaaaaaa.apps.googleusercontent.com
+        client_secret: aABBBBBBBBCCCCCCCCCDDDDD
+        oauth_callback_route: /oauth2callback
+        domain: example.com
