@@ -69,39 +69,21 @@ def kubectl_delete(stage, type, name):
     print(err)
 
 
-def deploy_dbinit(stage):
+def deploy_db():
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
-
-    execute_with_yaml('k8s/deploy-dbinit.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
-                      apply_changes)
-
-
-def deploy_db(stage):
-    def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
 
     execute_with_yaml('k8s/deploy-db.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def deploy_db(stage):
+def deploy_redis():
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
-
-    execute_with_yaml('k8s/deploy-db.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
-                      apply_changes)
-
-
-def deploy_redis(stage):
-    def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
 
     execute_with_yaml('k8s/deploy-redis.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
@@ -210,7 +192,7 @@ def get_environment_from(settings, environent):
     return None
 
 
-def kubectl_airflow_config_settings(command, settings, environment):
+def kubectl_airflow_config_settings(command):
     print str(environment)
     service = {
         'apiVersion': 'v1', 'kind': 'ConfigMap', 'data': {
@@ -227,9 +209,9 @@ def kubectl_airflow_config_settings(command, settings, environment):
     service['data']['git-repo-plugin'] = environment['git']['repo-plugin']
     service['data']['staging-bucket'] = environment['staging-bucket']
 
-    service['data']['sql-project'] = environment['database']['project']
-    service['data']['sql-zone'] = environment['database']['zone']
-    service['data']['sql-instance'] = environment['database']['instance']
+    service['data']['sql-project'] = settings['database-init']['project']
+    service['data']['sql-zone'] = settings['database-init']['zone']
+    service['data']['sql-instance'] = settings['database-init']['instance']
     service['data']['sql-database'] = environment['database']['database']
     service['data']['sql-user'] = environment['database']['user']
     service['data']['sql-password'] = environment['database']['password']
@@ -256,6 +238,16 @@ def kubectl(command, k8s_file):
     execute_with_yaml(k8s_file,
                       ['kubectl', command, '--namespace', namespace, '-f', '-'],
                       apply_changes)
+
+
+def kubectl_create_namespace():
+    p = Popen(
+        ['kubectl', 'create', 'namespace', namespace],
+        stdout=PIPE,
+        stdin=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    print(out)
+    print(err)
 
 
 def create_service_account(stage, key_file):
@@ -299,12 +291,8 @@ namespace = environment['namespace']
 
 version = '1.8.0.alpha.13'
 print
-print "Make sure the namespace: " + namespace + " already exists."
-print "If you didn't create it upfront, execute the following command first:"
-print ""
-print "   kubectl create namespace " + namespace
-print ""
-print "Also make sure a Cloud SQL database is setup. Consult the README file."
+print "Make sure you met the pre-requirement and pre-setup. Consult the README file."
+print "This setup procedure is not really forgiving."
 print
 print "1) Setup a new Airflow (version: " + version + ")"
 print "2) Upgrade Airflow (version: " + version + ")"
@@ -316,7 +304,8 @@ what = raw_input("Enter your choose: ")
 if what == '0':
     print "Install/Upgrade Airflow for Google Cloud on a GKE cluster"
 elif what == '1':
-    kubectl_airflow_config_settings('create', settings, environment)
+    kubectl_create_namespace()
+    kubectl_airflow_config_settings('create')
     create_service_account(namespace, environment['service-accounts'][0]['path'])
     create_airflow_config(namespace)
 
@@ -324,23 +313,25 @@ elif what == '1':
     service_redis(namespace)
     service_db(namespace)
 
-    deploy_db(namespace)
-    deploy_redis(namespace)
+    deploy_db()
+    deploy_redis()
 
-    print "We're ready to setup a database. Do you want to create a database or skip?"
-    print ""
-    what = raw_input("Type Y to create the database.")
+    what = raw_input("Do you want to create a database (Y to create)? ")
     if what == 'Y':
-        print "starting DB-create"
         kubectl('create', 'k8s/job-initdb.yaml')
-        what = raw_input("Type Y to create the database.")
+        what = raw_input("ENTER if database is created. ")
 
     deploy_scheduler(namespace, version)
     deploy_worker(namespace, version)
     deploy_webserver(namespace, version)
 elif what == '2':
+    kubectl_airflow_config_settings('apply')
 
-    kubectl_airflow_config_settings('apply', settings, environment)
+    what = raw_input("Do you want to upgrade the database (Y to create)? ")
+    if what == 'Y':
+        kubectl('create', 'k8s/job-upgradedb.yaml')
+        what = raw_input("ENTER if database is created. ")
+
     kubectl_patch(namespace, "airflow-webserver",
                   "b.gcr.io/airflow-gcp/airflow-master",
                   version)
@@ -353,7 +344,6 @@ elif what == '9':
     kubectl_delete(namespace, "deployment", "airflow-webserver")
     kubectl_delete(namespace, "deployment", "airflow-worker")
     kubectl_delete(namespace, "deployment", "airflow-scheduler")
-    kubectl_delete(namespace, "deployment", "airflow-dbinit")
     kubectl_delete(namespace, "deployment", "airflow-settings")
     kubectl_delete(namespace, "deployment", "airflow-db")
     kubectl_delete(namespace, "deployment", "airflow-redis")
