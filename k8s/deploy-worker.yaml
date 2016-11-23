@@ -37,7 +37,7 @@ spec:
         configMap:
           name: airflow-config
       containers:
-      - image: b.gcr.io/airflow-gcp/airflow-worker:1.8.0.alpha.1
+      - image: b.gcr.io/airflow-gcp/airflow-worker:1.8.0.alpha.10
         imagePullPolicy: IfNotPresent
         name: airflow-worker
         env:

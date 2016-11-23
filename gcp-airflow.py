@@ -211,6 +211,7 @@ def get_environment_from(settings, environent):
 
 
 def kubectl_airflow_config_settings(command, settings, environment):
+    print str(environment)
     service = {
         'apiVersion': 'v1', 'kind': 'ConfigMap', 'data': {
 
@@ -232,6 +233,8 @@ def kubectl_airflow_config_settings(command, settings, environment):
     service['data']['sql-database'] = environment['database']['database']
     service['data']['sql-user'] = environment['database']['user']
     service['data']['sql-password'] = environment['database']['password']
+    service['data']['sql-root-user'] = settings['database-init']['user']
+    service['data']['sql-root-password'] = settings['database-init']['password']
 
     try:
         p = Popen(
@@ -244,6 +247,15 @@ def kubectl_airflow_config_settings(command, settings, environment):
 
     except yaml.YAMLError as exc:
         print(exc)
+
+
+def kubectl(command, k8s_file):
+    def apply_changes(service):
+        service['metadata']['namespace'] = namespace
+
+    execute_with_yaml(k8s_file,
+                      ['kubectl', command, '--namespace', namespace, '-f', '-'],
+                      apply_changes)
 
 
 def create_service_account(stage, key_file):
@@ -285,7 +297,14 @@ while environment is None:
     environment = get_environment_from(settings, environment_name)
 namespace = environment['namespace']
 
-version = '1.8.0.alpha.6'
+version = '1.8.0.alpha.13'
+print
+print "Make sure the namespace: " + namespace + " already exists."
+print "If you didn't create it upfront, execute the following command first:"
+print ""
+print "   kubectl create namespace " + namespace
+print ""
+print "Also make sure a Cloud SQL database is setup. Consult the README file."
 print
 print "1) Setup a new Airflow (version: " + version + ")"
 print "2) Upgrade Airflow (version: " + version + ")"
@@ -297,7 +316,6 @@ what = raw_input("Enter your choose: ")
 if what == '0':
     print "Install/Upgrade Airflow for Google Cloud on a GKE cluster"
 elif what == '1':
-
     kubectl_airflow_config_settings('create', settings, environment)
     create_service_account(namespace, environment['service-accounts'][0]['path'])
     create_airflow_config(namespace)
@@ -308,12 +326,21 @@ elif what == '1':
 
     deploy_db(namespace)
     deploy_redis(namespace)
+
+    print "We're ready to setup a database. Do you want to create a database or skip?"
+    print ""
+    what = raw_input("Type Y to create the database.")
+    if what == 'Y':
+        print "starting DB-create"
+        kubectl('create', 'k8s/job-initdb.yaml')
+        what = raw_input("Type Y to create the database.")
+
     deploy_scheduler(namespace, version)
     deploy_worker(namespace, version)
     deploy_webserver(namespace, version)
 elif what == '2':
 
-    kubectl_airflow_config_settings('apply', 'development', settings)
+    kubectl_airflow_config_settings('apply', settings, environment)
     kubectl_patch(namespace, "airflow-webserver",
                   "b.gcr.io/airflow-gcp/airflow-master",
                   version)

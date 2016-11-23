@@ -1,4 +1,4 @@
-FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.6
+FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.13
 
 # A few problems with compiling Java from source:
 #  1. Oracle.  Licensing prevents us from redistributing the official JDK.
@@ -28,8 +28,8 @@ RUN { \
 
 ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
 
-ENV JAVA_VERSION 8u102
-ENV JAVA_DEBIAN_VERSION 8u102-b14.1-1~bpo8+1
+ENV JAVA_VERSION 8u111
+ENV JAVA_DEBIAN_VERSION 8u111-b14-2~bpo8+1
 
 
 # see https://bugs.debian.org/775775
@@ -48,4 +48,4 @@ RUN set -x \
 RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
 
-RUN git fetch -vp && git checkout 8ea382079b36c789500623ed8e1f0dc61dcab2c2 && python setup.py install
+RUN git fetch -vp && git checkout 8127bed7b4908e999a491ba5615f3f565fb87ce8 && python setup.py install

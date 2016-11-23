@@ -1,27 +1,12 @@
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  annotations:
-    deployment.kubernetes.io/revision: "2"
-  labels:
-    run: airflow-dbinit
-  name: airflow-dbinit
+  name: airflow-initdb-1.8.0.alpha.13
   namespace: default
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      run: airflow-dbinit
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
   template:
     metadata:
-      creationTimestamp: null
-      labels:
-        run: airflow-dbinit
+      name: airflow-initdb
     spec:
       volumes:
       - name: airflow-home
@@ -38,7 +23,8 @@ spec:
       containers:
       - image: b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.13
         imagePullPolicy: IfNotPresent
-        name: airflow-dbinit
+        command: ["/var/local/init_airflow.sh"]
+        name: airflow-initdb 
         env:
         - name: C_FORCE_ROOT
           value: "TRUE"
@@ -80,13 +66,7 @@ spec:
           mountPath: /secret
         - name: ssl-certs
           mountPath: /etc/ssl/certs
-        command: ["sleep"]
-        args: ["1000000"]
-        ports:
-        - containerPort: 8793
-        resources: {}
-        terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
-      restartPolicy: Always
+      restartPolicy: Never 
       securityContext: {}
       terminationGracePeriodSeconds: 30

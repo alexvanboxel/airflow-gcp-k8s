@@ -1,3 +1,3 @@
-FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.6
+FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.13
 
-RUN git fetch -vp && git checkout 8ea382079b36c789500623ed8e1f0dc61dcab2c2 && python setup.py install
+RUN git fetch -vp && git checkout 8127bed7b4908e999a491ba5615f3f565fb87ce8 && python setup.py install

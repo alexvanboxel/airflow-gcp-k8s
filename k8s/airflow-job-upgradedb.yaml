@@ -1,7 +1,7 @@
 apiVersion: batch/v1 
 kind: Job
 metadata:
-  name: airflow-upgradedb-1.8.0.alpha.1
+  name: airflow-upgradedb-1.8.0.alpha.10
   namespace: default
 spec:
   template:
