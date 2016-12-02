@@ -2,9 +2,19 @@
 
 ## Requirements
 
+### GCP minimum requirements
+
 - Cloud SQL
 -- admin user with remote access
 - GKE Cluster
+
+### Local requirements
+
+- GCloud SDK
+-- Kubernetes component installed
+- Python
+
+verify that you can connect by doing: "kubectl proxy"
 
 ## Preparing
 
@@ -15,12 +25,22 @@ from.
 
 ### OAuth Key
 
+Airfow GCP for K8S uses *GSuite* authentiacation. Create a OAuth key in your project,
+go to: API-Manager :: Credentials and create a key.
+
 ![OAuth1](doc/img/oauth1.png?raw=true)
+
+It should be a web key
 
 ![OAuth1](doc/img/oauth2.png?raw=true)
 
+Make sure "Authorized redirect URIs" are set, example:
+http://airflow.example.com:8080/oauth2callback?next=%2Fadmin%2F
+
 
 ## Settings File
+
+Create a file settings.yaml. You should use settings-example.yaml as a starting point.
 
 This setup uses the CloudSQL proxy, fill in the details. The root user+password is needed
 to create the seperate database and user for AirFlow
@@ -35,9 +55,7 @@ database-init:
   password: "my_super_secure_password"
 ```
 
-Setup a "Client ID for Web application" for Google authentication. May sure:
-"Authorized redirect URIs" are set, example:
-http://airflow.example.com:8080/oauth2callback?next=%2Fadmin%2F
+Enter the details of your Outh2 key you created:
 
 ```
 auth:
