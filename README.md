@@ -6,10 +6,13 @@ Container Engine. The images are pulled from a public accessible Container Regis
 It has the ability to generate several versions (example: production + staging) on the 
 same Kubernetes cluster.
 
+It will in dags and plugins from your own cloud git repository and binaries for gcs. (
+a later release will auto-sync)
+
 For more information on Airflow go to:
   https://airflow.incubator.apache.org/
 
-The version of Airflow is master (sonetimes plus a few fixes that will get backported to
+The version of Airflow is master (sometimes plus a few fixes that will get backported to
 Airflow)
 
 ## Requirements
@@ -20,6 +23,7 @@ Airflow)
 -- admin user with remote access
 - GKE Cluster
 - GSuite for authentication
+- Google Git Source repository 
 
 ### Local requirements
 
@@ -30,6 +34,21 @@ Airflow)
 verify that you can connect by doing: "kubectl proxy"
 
 ## Preparing
+
+### Source Repo
+
+You will need 2 source repo's. One for your DAGS and on for your PLUGINS. If you name
+them ```airflow-dag``` and ```airflow-plugin``` you don't need to change the settings
+in the settings file later (these are the default).
+
+A good strategy is to have production pull in ```master``` and a staging environment
+ ```develop``` branch.
+
+### Staging Bucket
+
+This staging bucket will be downloaded to the Airflow worker. Here you can put your
+binary dataflows. Create it, and remember the location, you will have to specify it in 
+settings.
 
 ### Service Account
 
