@@ -6,14 +6,21 @@
 -- admin user with remote access
 - GKE Cluster
 
-## Preparing your configuration
+## Preparing
 
 ### Service Account
 
 Create a service account JSON file, and store it on the system you will run this script
 from.
 
-### Settings File
+### OAuth Key
+
+![OAuth1](doc/img/oauth1.png?raw=true)
+
+![OAuth1](doc/img/oauth2.png?raw=true)
+
+
+## Settings File
 
 This setup uses the CloudSQL proxy, fill in the details. The root user+password is needed
 to create the seperate database and user for AirFlow
