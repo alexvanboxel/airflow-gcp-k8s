@@ -1,5 +1,17 @@
 # airflow-gcp-k8s
 
+This script will install a *Google Cloud* optimised version of Airflow on your Google 
+Container Engine. The images are pulled from a public accessible Container Registry.
+
+It has the ability to generate several versions (example: production + staging) on the 
+same Kubernetes cluster.
+
+For more information on Airflow go to:
+  https://airflow.incubator.apache.org/
+
+The version of Airflow is master (sonetimes plus a few fixes that will get backported to
+Airflow)
+
 ## Requirements
 
 ### GCP minimum requirements
@@ -7,6 +19,7 @@
 - Cloud SQL
 -- admin user with remote access
 - GKE Cluster
+- GSuite for authentication
 
 ### Local requirements
 
