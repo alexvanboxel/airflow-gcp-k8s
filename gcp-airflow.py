@@ -1,17 +1,11 @@
 import ConfigParser
 import io
 import json
+import sys
+import tempfile
 from subprocess import PIPE, Popen
 
 import yaml
-
-x_config = {'kind': 'ConfigMap',
-            'data': {'project': 'vex-eu-cloud-sql-001', 'instance': 'airflow-instance',
-                     'user': 'airflowproxy', 'zone': 'europe-west1',
-                     'database': 'airflow',
-                     'password': 'secret'}, 'apiVersion': 'v1',
-            'metadata': {'namespace': 'default',
-                         'name': 'airflow-db'}}
 
 
 def load_settings():
@@ -20,6 +14,13 @@ def load_settings():
             return yaml.load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+
+
+def output_stdout(out, err):
+    if len(out) > 0:
+        print(out)
+    if len(err) > 0:
+        print(err)
 
 
 def execute_with_yaml(template, command, apply_changes):
@@ -31,14 +32,21 @@ def execute_with_yaml(template, command, apply_changes):
                       stdout=PIPE,
                       stdin=PIPE, stderr=PIPE)
             out, err = p.communicate(input=yaml.dump(service))
-            print(out)
-            print(err)
+            output_stdout(out, err)
 
         except yaml.YAMLError as exc:
             print(exc)
 
 
-def kubectl_patch(stage, name, image, version):
+def execute_process(command):
+    p = Popen(command,
+              stdout=PIPE,
+              stdin=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    output_stdout(out, err)
+
+
+def kubectl_patch(name, image, version):
     path = [
         {"op": "replace", "path": "/metadata/labels/version",
          "value": version},
@@ -48,25 +56,15 @@ def kubectl_patch(stage, name, image, version):
          "value": image + ":" + version}
     ]
 
-    p = Popen(
+    execute_process(
         ['kubectl', 'patch', 'deployment', name, '--namespace',
-         stage, '--type', 'json', '-p=' + json.dumps(path)],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    print(out)
-    print(err)
+         namespace, '--type', 'json', '-p=' + json.dumps(path)])
 
 
-def kubectl_delete(stage, type, name):
-    p = Popen(
+def kubectl_delete(type, name):
+    execute_process(
         ['kubectl', 'delete', type, name, '--namespace',
-         stage],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    print(out)
-    print(err)
+         namespace])
 
 
 def deploy_db():
@@ -87,69 +85,51 @@ def deploy_redis():
                       apply_changes)
 
 
-def deploy_webserver(stage, version):
+def deploy_webserver(version):
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
             'image'] = 'b.gcr.io/airflow-gcp/airflow-master:' + version
 
     execute_with_yaml('k8s/deploy-webserver.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def deploy_scheduler(stage, version):
+def deploy_scheduler(version):
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
             'image'] = 'b.gcr.io/airflow-gcp/airflow-master:' + version
 
     execute_with_yaml('k8s/deploy-scheduler.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def deploy_worker(stage, version):
+def deploy_worker(version):
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
             'image'] = 'b.gcr.io/airflow-gcp/airflow-worker:' + version
 
     execute_with_yaml('k8s/deploy-worker.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def service_webserver(stage):
+def service(service_name):
     def apply_changes(service):
-        service['metadata']['namespace'] = stage
+        service['metadata']['namespace'] = namespace
 
-    execute_with_yaml('k8s/service-webserver.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
-                      apply_changes)
-
-
-def service_db(stage):
-    def apply_changes(service):
-        service['metadata']['namespace'] = stage
-
-    execute_with_yaml('k8s/service-db.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
-                      apply_changes)
-
-
-def service_redis(stage):
-    def apply_changes(service):
-        service['metadata']['namespace'] = stage
-
-    execute_with_yaml('k8s/service-redis.yaml',
-                      ['kubectl', 'create', '--namespace', stage, '-f', '-'],
+    execute_with_yaml('k8s/service-' + service_name + '.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
@@ -164,36 +144,34 @@ def gcloud():
     return config
 
 
-def config():
-    p = Popen(
-        ['kubectl', 'get', '--namespace', 'default', 'configmap/airflow-db', '-o',
-         'yaml'],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    return yaml.load(out)
+def create_airflow_config():
+    config = ConfigParser.ConfigParser()
+    config.readfp(open('airflow-template.cfg'))
 
+    config.set('core', 'remote_log_conn_id', environment['logging']['conn_id'])
+    config.set('core', 'remote_base_log_folder', environment['logging']['bucket'])
+    config.set('webserver', 'base_url', environment['webserver']['base_url'])
+    config.set('webserver', 'web_server_port', 8080)
 
-def create_airflow_config(stage):
-    p = Popen(
+    config.set('google', 'client_id', settings['auth']['client_id'])
+    config.set('google', 'client_secret', settings['auth']['client_secret'])
+    config.set('google', 'domain', settings['auth']['domain'])
+    tmp = tempfile.NamedTemporaryFile()
+    config.write(tmp)
+    tmp.flush()
+    execute_process(
         ['kubectl', 'create', 'configmap', 'airflow-config', '--namespace',
-         stage, '--from-file', 'airflow.cfg=airflow-' + stage + '.cfg'],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    print(out)
-    print(err)
+         namespace, '--from-file', 'airflow.cfg=' + tmp.name])
 
 
-def get_environment_from(settings, environent):
+def get_environment_from():
     for env in settings['environments']:
-        if env['name'] == environent:
+        if env['name'] == environment_name:
             return env
     return None
 
 
 def kubectl_airflow_config_settings(command):
-    print str(environment)
     service = {
         'apiVersion': 'v1', 'kind': 'ConfigMap', 'data': {
 
@@ -209,9 +187,9 @@ def kubectl_airflow_config_settings(command):
     service['data']['git-repo-plugin'] = environment['git']['repo-plugin']
     service['data']['staging-bucket'] = environment['staging-bucket']
 
-    service['data']['sql-project'] = settings['database-init']['project']
-    service['data']['sql-zone'] = settings['database-init']['zone']
-    service['data']['sql-instance'] = settings['database-init']['instance']
+    service['data']['sql-project'] = settings['database-init']['proxy']['project']
+    service['data']['sql-zone'] = settings['database-init']['proxy']['zone']
+    service['data']['sql-instance'] = settings['database-init']['proxy']['instance']
     service['data']['sql-database'] = environment['database']['database']
     service['data']['sql-user'] = environment['database']['user']
     service['data']['sql-password'] = environment['database']['password']
@@ -224,8 +202,7 @@ def kubectl_airflow_config_settings(command):
             stdout=PIPE,
             stdin=PIPE, stderr=PIPE)
         out, err = p.communicate(input=yaml.dump(service))
-        print(out)
-        print(err)
+        output_stdout(out, err)
 
     except yaml.YAMLError as exc:
         print(exc)
@@ -241,24 +218,14 @@ def kubectl(command, k8s_file):
 
 
 def kubectl_create_namespace():
-    p = Popen(
-        ['kubectl', 'create', 'namespace', namespace],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    print(out)
-    print(err)
+    execute_process(
+        ['kubectl', 'create', 'namespace', namespace])
 
 
-def create_service_account(stage, key_file):
-    p = Popen(
+def create_service_account(key_file):
+    execute_process(
         ['kubectl', 'create', 'secret', 'generic', 'service-account', '--namespace',
-         stage, '--from-file', "service-account.json=" + key_file],
-        stdout=PIPE,
-        stdin=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    print(out)
-    print(err)
+         namespace, '--from-file', "service-account.json=" + key_file])
 
 
 def create_proxy(stage):
@@ -270,8 +237,7 @@ def create_proxy(stage):
                       stdout=PIPE,
                       stdin=PIPE, stderr=PIPE)
             out, err = p.communicate(input=yaml.dump(service))
-            print(out)
-            print(err)
+            output_stdout(out, err)
 
         except yaml.YAMLError as exc:
             print(exc)
@@ -280,16 +246,16 @@ def create_proxy(stage):
 print "Airflow for Google Cloud"
 print
 environment = None
+settings = load_settings()
 while environment is None:
     print "Please select on of the environments to setup:"
-    settings = load_settings()
     for env in settings['environments']:
         print '- ' + env['name']
     environment_name = raw_input("Environment: ")
-    environment = get_environment_from(settings, environment_name)
+    environment = get_environment_from()
 namespace = environment['namespace']
 
-version = '1.8.0.alpha.13'
+version = '1.8.0.alpha.16'
 print
 print "Make sure you met the pre-requirement and pre-setup. Consult the README file."
 print "This setup procedure is not really forgiving."
@@ -306,12 +272,12 @@ if what == '0':
 elif what == '1':
     kubectl_create_namespace()
     kubectl_airflow_config_settings('create')
-    create_service_account(namespace, environment['service-accounts'][0]['path'])
-    create_airflow_config(namespace)
+    create_service_account(environment['service-accounts'][0]['path'])
+    create_airflow_config()
 
-    service_webserver(namespace)
-    service_redis(namespace)
-    service_db(namespace)
+    service('webserver')
+    service('redis')
+    service('db')
 
     deploy_db()
     deploy_redis()
@@ -321,9 +287,9 @@ elif what == '1':
         kubectl('create', 'k8s/job-initdb.yaml')
         what = raw_input("ENTER if database is created. ")
 
-    deploy_scheduler(namespace, version)
-    deploy_worker(namespace, version)
-    deploy_webserver(namespace, version)
+    deploy_scheduler(version)
+    deploy_worker(version)
+    deploy_webserver(version)
 elif what == '2':
     kubectl_airflow_config_settings('apply')
 
@@ -332,26 +298,25 @@ elif what == '2':
         kubectl('create', 'k8s/job-upgradedb.yaml')
         what = raw_input("ENTER if database is created. ")
 
-    kubectl_patch(namespace, "airflow-webserver",
+    kubectl_patch("airflow-webserver",
                   "b.gcr.io/airflow-gcp/airflow-master",
                   version)
-    kubectl_patch(namespace, "airflow-scheduler",
+    kubectl_patch("airflow-scheduler",
                   "b.gcr.io/airflow-gcp/airflow-master",
                   version)
-    kubectl_patch(namespace, "airflow-worker", "b.gcr.io/airflow-gcp/airflow-worker",
+    kubectl_patch("airflow-worker", "b.gcr.io/airflow-gcp/airflow-worker",
                   version)
 elif what == '9':
-    kubectl_delete(namespace, "deployment", "airflow-webserver")
-    kubectl_delete(namespace, "deployment", "airflow-worker")
-    kubectl_delete(namespace, "deployment", "airflow-scheduler")
-    kubectl_delete(namespace, "deployment", "airflow-settings")
-    kubectl_delete(namespace, "deployment", "airflow-db")
-    kubectl_delete(namespace, "deployment", "airflow-redis")
-    kubectl_delete(namespace, "services", "airflow-redis")
-    kubectl_delete(namespace, "services", "airflow-db")
-    # kubectl_delete(current_stage, "services", "airflow")
-    kubectl_delete(namespace, "configmap", "airflow-settings")
-    kubectl_delete(namespace, "configmap", "airflow-config")
-    kubectl_delete(namespace, "secrets", "service-account")
+    kubectl_delete("deployment", "airflow-webserver")
+    kubectl_delete("deployment", "airflow-worker")
+    kubectl_delete("deployment", "airflow-scheduler")
+    kubectl_delete("deployment", "airflow-db")
+    kubectl_delete("deployment", "airflow-redis")
+    kubectl_delete("services", "airflow-redis")
+    kubectl_delete("services", "airflow-db")
+    #kubectl_delete("services", "airflow")
+    kubectl_delete("configmap", "airflow-settings")
+    kubectl_delete("configmap", "airflow-config")
+    kubectl_delete("secrets", "service-account")
 else:
     print "Nothing todo, exiting"

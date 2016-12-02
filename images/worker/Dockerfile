@@ -48,4 +48,4 @@ RUN set -x \
 RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
 
-RUN git fetch -vp && git checkout 8127bed7b4908e999a491ba5615f3f565fb87ce8 && python setup.py install
+RUN git fetch -vp && git checkout ff5eb6a07777b2a03dddd4ec95766603ac0ed34a && python setup.py install
