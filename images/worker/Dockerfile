@@ -47,5 +47,7 @@ RUN set -x \
 # see CA_CERTIFICATES_JAVA_VERSION notes above
 RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
+RUN pip uninstall --yes oauth2client
+RUN pip install oauth2client==3.0.0
 
-RUN git fetch -vp && git checkout ff5eb6a07777b2a03dddd4ec95766603ac0ed34a && python setup.py install
+RUN git fetch -vp && git checkout 483c0f95bcf7200990e4abfd68f53f31aca2941d && python setup.py install
