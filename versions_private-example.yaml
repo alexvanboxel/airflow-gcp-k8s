@@ -1,0 +1,3 @@
+private:
+  repo: gcr.io/my-private-project
+  version: 6.6.6

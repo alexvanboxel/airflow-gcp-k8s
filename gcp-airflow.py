@@ -16,6 +16,25 @@ def load_settings():
             print(exc)
 
 
+def load_versions_public():
+    with open('versions_public.yaml', 'r') as stream:
+        try:
+            return yaml.load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+
+
+def load_versions_private():
+    try:
+        with open('versions_private.yaml', 'r') as stream:
+            try:
+                return yaml.load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+    except IOError:
+        return None
+
+
 def output_stdout(out, err):
     if len(out) > 0:
         print(out)
@@ -85,39 +104,63 @@ def deploy_redis():
                       apply_changes)
 
 
-def deploy_webserver(version):
+def deploy_webserver():
     def apply_changes(service):
         service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
-            'image'] = 'b.gcr.io/airflow-gcp/airflow-master:' + version
+            'image'] = repo + '/airflow-master:' + version
 
     execute_with_yaml('k8s/deploy-webserver.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def deploy_scheduler(version):
+def deploy_scheduler():
     def apply_changes(service):
         service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
-            'image'] = 'b.gcr.io/airflow-gcp/airflow-master:' + version
+            'image'] = repo + '/airflow-master:' + version
 
     execute_with_yaml('k8s/deploy-scheduler.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
 
-def deploy_worker(version):
+def deploy_upgradedb():
+    def apply_changes(service):
+        service['metadata']['name'] = "airflow-upgrade-" + version
+        service['metadata']['namespace'] = namespace
+        service['spec']['template']['spec']['containers'][0][
+            'image'] = repo + '/airflow-master:' + version
+
+    execute_with_yaml('k8s/job-upgradedb.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
+                      apply_changes)
+
+
+def deploy_initdb():
+    def apply_changes(service):
+        service['metadata']['name'] = "airflow-initdb-" + version
+        service['metadata']['namespace'] = namespace
+        service['spec']['template']['spec']['containers'][0][
+            'image'] = repo + '/airflow-master:' + version
+
+    execute_with_yaml('k8s/job-initdb.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
+                      apply_changes)
+
+
+def deploy_worker():
     def apply_changes(service):
         service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
-            'image'] = 'b.gcr.io/airflow-gcp/airflow-worker:' + version
+            'image'] = repo + '/airflow-worker:' + version
 
     execute_with_yaml('k8s/deploy-worker.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
@@ -247,6 +290,22 @@ print "Airflow for Google Cloud"
 print
 environment = None
 settings = load_settings()
+version_public = load_versions_public()
+version_private = load_versions_private()
+
+print str(version_public)
+print str(version_private)
+if version_private is None:
+    repo = 'b.gcr.io/airflow-gcp'
+    version = version_public['public']['version']
+    print "Using public repo"
+    print repo + ":" + version
+else:
+    repo = version_private['private']['repo']
+    version = version_private['private']['version']
+    print "Using private repo"
+    print repo + ":" + version
+
 while environment is None:
     print "Please select on of the environments to setup:"
     for env in settings['environments']:
@@ -255,7 +314,6 @@ while environment is None:
     environment = get_environment_from()
 namespace = environment['namespace']
 
-version = '1.8.0.alpha.16'
 print
 print "Make sure you met the pre-requirement and pre-setup. Consult the README file."
 print "This setup procedure is not really forgiving."
@@ -284,27 +342,27 @@ elif what == '1':
 
     what = raw_input("Do you want to create a database (Y to create)? ")
     if what == 'Y':
-        kubectl('create', 'k8s/job-initdb.yaml')
+        deploy_initdb()
         what = raw_input("ENTER if database is created. ")
 
-    deploy_scheduler(version)
-    deploy_worker(version)
-    deploy_webserver(version)
+    deploy_scheduler()
+    deploy_worker()
+    deploy_webserver()
 elif what == '2':
     kubectl_airflow_config_settings('apply')
 
     what = raw_input("Do you want to upgrade the database (Y to create)? ")
     if what == 'Y':
-        kubectl('create', 'k8s/job-upgradedb.yaml')
+        deploy_upgradedb()
         what = raw_input("ENTER if database is created. ")
 
     kubectl_patch("airflow-webserver",
-                  "b.gcr.io/airflow-gcp/airflow-master",
+                  repo + "/airflow-master",
                   version)
     kubectl_patch("airflow-scheduler",
-                  "b.gcr.io/airflow-gcp/airflow-master",
+                  repo + "/airflow-master",
                   version)
-    kubectl_patch("airflow-worker", "b.gcr.io/airflow-gcp/airflow-worker",
+    kubectl_patch("airflow-worker", repo + "/airflow-worker",
                   version)
 elif what == '9':
     kubectl_delete("deployment", "airflow-webserver")
