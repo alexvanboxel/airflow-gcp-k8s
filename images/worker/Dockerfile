@@ -1,4 +1,4 @@
-FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.13
+FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.100
 
 # A few problems with compiling Java from source:
 #  1. Oracle.  Licensing prevents us from redistributing the official JDK.
@@ -46,8 +46,5 @@ RUN set -x \
 
 # see CA_CERTIFICATES_JAVA_VERSION notes above
 RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
-
-RUN pip uninstall --yes oauth2client
-RUN pip install oauth2client==3.0.0
 
 RUN git fetch -vp && git checkout e0c57aa478c37103df3775b72bf07beabd135809 && python setup.py install

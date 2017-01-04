@@ -134,3 +134,9 @@ You need python 2, run:
 python gcp-airflow.py
 
 and follow instructions
+
+
+# Versions
+
+base | https://github.com/apache/incubator-airflow | master
+master | https://github.com/apache/incubator-airflow | google-cloud
