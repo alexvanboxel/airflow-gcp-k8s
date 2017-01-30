@@ -1,4 +1,4 @@
-FROM b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.101
+FROM b.gcr.io/airflow-gcp/airflow-master:1.8.0.beta.501
 
 RUN pip install slackclient
 RUN pip install SurveyGizmo

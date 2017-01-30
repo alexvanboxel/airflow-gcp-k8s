@@ -18,9 +18,9 @@ RUN set -x \
 RUN pip install python-daemon
 RUN pip install oauth2client==3.0.0
 RUN pip install google-api-python-client
-RUN pip install flask
-RUN pip install flask_bcrypt
-RUN pip install flask_oauthlib
+#RUN pip install flask
+#RUN pip install flask_bcrypt
+#RUN pip install flask_oauthlib
 RUN pip install cryptography
 RUN pip install MySQL-python
 RUN pip install cython

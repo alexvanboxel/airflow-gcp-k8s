@@ -1,5 +1,5 @@
 public:
-  tag: e0c57aa478c37103df3775b72bf07beabd135809
-  version: 1.8.0.alpha.101
+  tag: 5f395306385a21c05e50b86ce096a036a4cf1f13
+  version: 1.8.0.beta.501
 base:
-  version: 1.8.0.alpha.100
+  version: 1.8.0.alpha.400

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-build_public.sh
+./build_public.sh
 
-build_private.sh
+./build_private.sh
