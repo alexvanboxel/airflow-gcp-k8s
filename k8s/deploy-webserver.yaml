@@ -74,7 +74,13 @@ spec:
         ports:
         - containerPort: 8080
           protocol: TCP
-        resources: {}
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 800Mi
+          requests:
+            cpu: 500m
+            memory: 400Mi
         terminationMessagePath: /dev/termination-log
       - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
         imagePullPolicy: IfNotPresent

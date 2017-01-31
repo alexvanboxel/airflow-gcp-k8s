@@ -43,7 +43,13 @@ spec:
         ports:
         - containerPort: 3306 
           protocol: TCP
-        resources: {}
+        resources:
+          limits:
+            cpu: 300m
+            memory: 20Mi
+          requests:
+            cpu: 100m
+            memory: 10Mi
         terminationMessagePath: /dev/termination-log
         env:
         - name: SQL_PROJECT
@@ -65,3 +71,4 @@ spec:
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
+

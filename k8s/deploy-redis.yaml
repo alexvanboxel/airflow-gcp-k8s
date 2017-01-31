@@ -28,7 +28,13 @@ spec:
         ports:
         - containerPort: 6379
           protocol: TCP
-        resources: {}
+        resources:
+          limits:
+            cpu: 50m
+            memory: 5Mi
+          requests:
+            cpu: 10m
+            memory: 2Mi
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
       restartPolicy: Always

@@ -70,7 +70,13 @@ spec:
           mountPath: /etc/ssl/certs
         command: ["airflow"]
         args: ["scheduler"]
-        resources: {}
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 600Mi
+          requests:
+            cpu: 1000m
+            memory: 300Mi
         terminationMessagePath: /dev/termination-log
       - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
         imagePullPolicy: IfNotPresent

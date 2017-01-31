@@ -47,6 +47,6 @@ RUN set -x \
 # see CA_CERTIFICATES_JAVA_VERSION notes above
 RUN /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
-RUN git fetch -vp && git checkout 5f395306385a21c05e50b86ce096a036a4cf1f13 && python setup.py install
+RUN git fetch -vp && git checkout a50bfc915c66b5e44e1b30b1beae2458b61d1379 && python setup.py install
 RUN pip install flask_bcrypt
 RUN pip install flask_oauthlib
