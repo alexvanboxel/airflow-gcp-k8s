@@ -1,5 +1,28 @@
 public:
-  tag: a50bfc915c66b5e44e1b30b1beae2458b61d1379
-  version: 1.8.0.beta.602
+  tag: 8e7a5583610be370dd26d50df0b7b98d90dbd396
+  version: 1.8.0.ga.101
 base:
-  version: 1.8.0.alpha.400
+  version: 1.8.0.rc.100
+
+
+#public:
+##  # beta rc1 (broken)
+##  tag: 2b7d40bf83c3b7b7ef35cce379d384019f89f57f
+##  version: 1.8.0.beta.599
+##  # beta 5+6 (broken)
+##  tag: 180ef35c090928f491a1d09c104e3bec4b427302
+##  version: 1.8.0.beta.557
+#  # beta 5+5 (broken)
+#  tag: e7f6212cae82c3a3a0bc17bbcbc70646f67d02eb
+#  version: 1.8.0.beta.555
+##  # beta 5+4
+##  tag: e56f627e569e74ced6d54dfde852fd68f2fe0b08
+##  version: 1.8.0.beta.554
+##  # beta 5
+##  tag: 40442e58ff20a7eba8420fb4fa851401e413ba84
+##  version: 1.8.0.beta.550
+##  # beta 4
+##  tag: 7ce34445579934e29ea5140cd726d1f9ccfc5b62
+##  version: 1.8.0.beta.451
+#base:
+#  version: 1.8.0.alpha.400

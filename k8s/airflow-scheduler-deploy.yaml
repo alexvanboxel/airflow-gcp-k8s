@@ -4,15 +4,14 @@ metadata:
   annotations:
     deployment.kubernetes.io/revision: "2"
   labels:
-    run: airflow-webserver
-    version: 0
-  name: airflow-webserver
-  namespace: default
+    run: airflow-scheduler
+    version: "0"
+  name: airflow-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: airflow-webserver
+      run: airflow-scheduler
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -21,12 +20,13 @@ spec:
   template:
     metadata:
       labels:
-        run: airflow-webserver
-        version: 0
+        run: airflow-scheduler
+        version: "0"
     spec:
       volumes:
       - name: airflow-home
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: airflow-home
       - name: service-account
         secret:
           secretName: "service-account"
@@ -39,7 +39,7 @@ spec:
       containers:
       - image: b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.10
         imagePullPolicy: IfNotPresent
-        name: airflow-webserver
+        name: airflow-scheduler
         env:
         - name: AIRFLOW_HOME
           value: /etc/airflow
@@ -70,54 +70,14 @@ spec:
         - name: ssl-certs
           mountPath: /etc/ssl/certs
         command: ["airflow"]
-        args: ["webserver"]
-        ports:
-        - containerPort: 8080
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 800Mi
-          requests:
-            cpu: 500m
-            memory: 400Mi
-        terminationMessagePath: /dev/termination-log
-      - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
-        imagePullPolicy: IfNotPresent
-        name: airflow-git-sync
-        env:
-        - name: AIRFLOW_HOME
-          value: /etc/airflow
-        - name: SYNC_REPO_DAG
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-repo-dag
-        - name: SYNC_REPO_PLUGIN
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-repo-plugin
-        - name: SYNC_BRANCH
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-branch
-        - name: SYNC_STAGING_BUCKET
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: staging-bucket
-        volumeMounts:
-        - name: airflow-home
-          mountPath: /home/airflow
-        - name: airflow-config
-          mountPath: /etc/airflow
-        - name: service-account
-          mountPath: /secret
-        - name: ssl-certs
-          mountPath: /etc/ssl/certs
-        resources: {}
+        args: ["scheduler"]
+#        resources:
+#          limits:
+#            cpu: 2000m
+#            memory: 600Mi
+#          requests:
+#            cpu: 1000m
+#            memory: 300Mi
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
       restartPolicy: Always

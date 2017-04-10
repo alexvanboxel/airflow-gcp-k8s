@@ -4,15 +4,14 @@ metadata:
   annotations:
     deployment.kubernetes.io/revision: "2"
   labels:
-    run: airflow-scheduler
-    version: 0
-  name: airflow-scheduler
-  namespace: default
+    run: airflow-sync
+    version: "0"
+  name: airflow-sync
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: airflow-scheduler
+      run: airflow-sync
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -21,11 +20,12 @@ spec:
   template:
     metadata:
       labels:
-        run: airflow-scheduler
+        run: airflow-sync
     spec:
       volumes:
       - name: airflow-home
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: airflow-home
       - name: service-account
         secret:
           secretName: "service-account"
@@ -36,51 +36,9 @@ spec:
         configMap:
           name: airflow-config
       containers:
-      - image: b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.10
-        imagePullPolicy: IfNotPresent
-        name: airflow-scheduler
-        env:
-        - name: AIRFLOW_HOME
-          value: /etc/airflow
-        - name: SQL_DATABASE
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: sql-database
-        - name: SQL_USER
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: sql-user
-        - name: SQL_PASSWORD
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: sql-password
-        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
-          value: mysql+mysqldb://$(SQL_USER):$(SQL_PASSWORD)@airflow-db/$(SQL_DATABASE)
-        volumeMounts:
-        - name: airflow-home
-          mountPath: /home/airflow
-        - name: airflow-config
-          mountPath: /etc/airflow
-        - name: service-account
-          mountPath: /secret
-        - name: ssl-certs
-          mountPath: /etc/ssl/certs
-        command: ["airflow"]
-        args: ["scheduler"]
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 600Mi
-          requests:
-            cpu: 1000m
-            memory: 300Mi
-        terminationMessagePath: /dev/termination-log
       - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
         imagePullPolicy: IfNotPresent
-        name: airflow-git-sync
+        name: airflow-sync
         env:
         - name: AIRFLOW_HOME
           value: /etc/airflow

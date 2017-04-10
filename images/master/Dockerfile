@@ -1,5 +1,6 @@
-FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.alpha.400
+FROM b.gcr.io/airflow-gcp/airflow-base:1.8.0.rc.100
 
-RUN git fetch -vp && git checkout a50bfc915c66b5e44e1b30b1beae2458b61d1379 && python setup.py install
+RUN pip uninstall airflow -y
+RUN git fetch -vp && git checkout 8e7a5583610be370dd26d50df0b7b98d90dbd396   && python setup.py install
 RUN pip install flask_bcrypt
 RUN pip install flask_oauthlib

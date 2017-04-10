@@ -4,7 +4,6 @@ metadata:
   labels:
     run: airflow-redis
   name: airflow-redis
-  namespace: default
 spec:
   replicas: 1
   selector:

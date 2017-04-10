@@ -4,7 +4,6 @@ metadata:
   labels:
     run: airflow-db
   name: airflow-db
-  namespace: default
 spec:
   replicas: 1
   selector:

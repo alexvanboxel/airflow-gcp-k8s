@@ -1,0 +1,88 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "2"
+  labels:
+    run: airflow-webserver
+    version: "0"
+  name: airflow-webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: airflow-webserver
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        run: airflow-webserver
+        version: "0"
+    spec:
+      volumes:
+      - name: airflow-home
+        persistentVolumeClaim:
+          claimName: airflow-home
+      - name: service-account
+        secret:
+          secretName: "service-account"
+      - name: ssl-certs
+        hostPath:
+          path: /etc/ssl/certs
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      containers:
+      - image: b.gcr.io/airflow-gcp/airflow-master:1.8.0.alpha.10
+        imagePullPolicy: IfNotPresent
+        name: airflow-webserver
+        env:
+        - name: AIRFLOW_HOME
+          value: /etc/airflow
+        - name: SQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-database
+        - name: SQL_USER
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-user
+        - name: SQL_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: airflow-settings
+              key: sql-password
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: mysql+mysqldb://$(SQL_USER):$(SQL_PASSWORD)@airflow-db/$(SQL_DATABASE)
+        volumeMounts:
+        - name: airflow-home
+          mountPath: /home/airflow
+        - name: airflow-config
+          mountPath: /etc/airflow
+        - name: service-account
+          mountPath: /secret
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        command: ["airflow"]
+        args: ["webserver"]
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+#        resources:
+#          limits:
+#            cpu: 1000m
+#            memory: 800Mi
+#          requests:
+#            cpu: 500m
+#            memory: 400Mi
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 from subprocess import PIPE, Popen
+from time import sleep
 
 import yaml
 
@@ -42,11 +43,12 @@ def output_stdout(out, err):
         print(err)
 
 
-def execute_with_yaml(template, command, apply_changes):
+def execute_with_yaml(template, command, apply_changes=None):
     with open(template, 'r') as stream:
         try:
             service = yaml.load(stream)
-            apply_changes(service)
+            if apply_changes is not None:
+                apply_changes(service)
             p = Popen(command,
                       stdout=PIPE,
                       stdin=PIPE, stderr=PIPE)
@@ -87,47 +89,31 @@ def kubectl_delete(type, name):
 
 
 def deploy_db():
-    def apply_changes(service):
-        service['metadata']['namespace'] = namespace
-
-    execute_with_yaml('k8s/deploy-db.yaml',
-                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      apply_changes)
+    execute_with_yaml('k8s/airflow-db-deploy.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'])
 
 
 def deploy_redis():
+    execute_with_yaml('k8s/airflow-redis-deploy.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'])
+
+
+def deploy_sync():
+    execute_with_yaml('k8s/airflow-sync-deploy.yaml',
+                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'])
+    sleep(30)
+
+
+def deploy_airflow(name, image_suffix):
     def apply_changes(service):
-        service['metadata']['namespace'] = namespace
-
-    execute_with_yaml('k8s/deploy-redis.yaml',
-                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      apply_changes)
-
-
-def deploy_webserver():
-    def apply_changes(service):
-        service['metadata']['namespace'] = namespace
         service['metadata']['labels']['version'] = version
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
-            'image'] = repo + '/airflow-master:' + version
+            'image'] = repo + '/airflow-' + image_suffix + ':' + version
 
-    execute_with_yaml('k8s/deploy-webserver.yaml',
+    execute_with_yaml('k8s/airflow-' + name + '-deploy.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      apply_changes)
-
-
-def deploy_scheduler():
-    def apply_changes(service):
-        service['metadata']['namespace'] = namespace
-        service['metadata']['labels']['version'] = version
-        service['spec']['template']['metadata']['labels']['version'] = version
-        service['spec']['template']['spec']['containers'][0][
-            'image'] = repo + '/airflow-master:' + version
-
-    execute_with_yaml('k8s/deploy-scheduler.yaml',
-                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      apply_changes)
+                      ,)
 
 
 def deploy_upgradedb():
@@ -150,19 +136,6 @@ def deploy_initdb():
             'image'] = repo + '/airflow-master:' + version
 
     execute_with_yaml('k8s/job-initdb.yaml',
-                      ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      apply_changes)
-
-
-def deploy_worker():
-    def apply_changes(service):
-        service['metadata']['namespace'] = namespace
-        service['metadata']['labels']['version'] = version
-        service['spec']['template']['metadata']['labels']['version'] = version
-        service['spec']['template']['spec']['containers'][0][
-            'image'] = repo + '/airflow-worker:' + version
-
-    execute_with_yaml('k8s/deploy-worker.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
 
@@ -271,20 +244,6 @@ def create_service_account(key_file):
          namespace, '--from-file', "service-account.json=" + key_file])
 
 
-def create_proxy(stage):
-    with open('k8s/deploy-redis.yaml', 'r') as stream:
-        try:
-            service = yaml.load(stream)
-            service['metadata']['namespace'] = stage
-            p = Popen(['kubectl', 'create', '--namespace', 'dev', '-f', '-'],
-                      stdout=PIPE,
-                      stdin=PIPE, stderr=PIPE)
-            out, err = p.communicate(input=yaml.dump(service))
-            output_stdout(out, err)
-
-        except yaml.YAMLError as exc:
-            print(exc)
-
 
 print "Airflow for Google Cloud"
 print
@@ -337,17 +296,18 @@ elif what == '1':
     service('redis')
     service('db')
 
-    deploy_db()
     deploy_redis()
+    deploy_db()
+    deploy_sync()
 
     what = raw_input("Do you want to create a database (Y to create)? ")
     if what == 'Y':
         deploy_initdb()
         what = raw_input("ENTER if database is created. ")
 
-    deploy_scheduler()
-    deploy_worker()
-    deploy_webserver()
+    deploy_airflow('worker', 'worker')
+    deploy_airflow('webserver', 'master')
+    deploy_airflow('scheduler', 'master')
 elif what == '2':
     kubectl_airflow_config_settings('apply')
 
@@ -370,6 +330,7 @@ elif what == '9':
     kubectl_delete("deployment", "airflow-scheduler")
     kubectl_delete("deployment", "airflow-db")
     kubectl_delete("deployment", "airflow-redis")
+    kubectl_delete("deployment", "airflow-sync")
     kubectl_delete("services", "airflow-redis")
     kubectl_delete("services", "airflow-db")
     #kubectl_delete("services", "airflow")

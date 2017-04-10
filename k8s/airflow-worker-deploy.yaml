@@ -5,9 +5,8 @@ metadata:
     deployment.kubernetes.io/revision: "2"
   labels:
     run: airflow-worker
-    version: 0
+    version: "0"
   name: airflow-worker
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -22,11 +21,12 @@ spec:
     metadata:
       labels:
         run: airflow-worker
-        version: 0
+        version: "0"
     spec:
       volumes:
       - name: airflow-home
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: airflow-home
       - name: service-account
         secret:
           secretName: "service-account"
@@ -73,50 +73,13 @@ spec:
         args: ["worker"]
         ports:
         - containerPort: 8793
-        resources:
-          limits:
-            cpu: 1500m
-            memory: 1600Mi
-          requests:
-            cpu: 800m
-            memory: 800Mi
-        terminationMessagePath: /dev/termination-log
-      - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
-        imagePullPolicy: IfNotPresent
-        name: airflow-git-sync
-        env:
-        - name: AIRFLOW_HOME
-          value: /etc/airflow
-        - name: SYNC_REPO_DAG
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-repo-dag
-        - name: SYNC_REPO_PLUGIN
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-repo-plugin
-        - name: SYNC_BRANCH
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: git-branch
-        - name: SYNC_STAGING_BUCKET
-          valueFrom:
-            configMapKeyRef:
-              name: airflow-settings
-              key: staging-bucket
-        volumeMounts:
-        - name: airflow-home
-          mountPath: /home/airflow
-        - name: airflow-config
-          mountPath: /etc/airflow
-        - name: service-account
-          mountPath: /secret
-        - name: ssl-certs
-          mountPath: /etc/ssl/certs
-        resources: {}
+#        resources:
+#          limits:
+#            cpu: 1500m
+#            memory: 1600Mi
+#          requests:
+#            cpu: 800m
+#            memory: 800Mi
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
       restartPolicy: Always

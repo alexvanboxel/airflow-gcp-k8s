@@ -2,10 +2,11 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: airflow-home
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "nfs"
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
-      storage: 8Gi
-
+      storage: 20Gi
