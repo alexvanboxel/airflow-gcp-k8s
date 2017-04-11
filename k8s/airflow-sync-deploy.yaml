@@ -21,6 +21,7 @@ spec:
     metadata:
       labels:
         run: airflow-sync
+        version: "0"
     spec:
       volumes:
       - name: airflow-home
@@ -36,7 +37,7 @@ spec:
         configMap:
           name: airflow-config
       containers:
-      - image: b.gcr.io/airflow-gcp/airflow-sync:1.6.6
+      - image: b.gcr.io/airflow-gcp/airflow-sync:2.0
         imagePullPolicy: IfNotPresent
         name: airflow-sync
         env:
@@ -71,6 +72,18 @@ spec:
           mountPath: /secret
         - name: ssl-certs
           mountPath: /etc/ssl/certs
+        command: ["python"]
+        args: ["app.py"]
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 800Mi
+          requests:
+            cpu: 500m
+            memory: 400Mi
         resources: {}
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
