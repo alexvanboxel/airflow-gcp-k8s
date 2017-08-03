@@ -3,10 +3,10 @@ import io
 import json
 import sys
 import tempfile
+import yaml
+
 from subprocess import PIPE, Popen
 from time import sleep
-
-import yaml
 
 
 def load_settings():
@@ -69,12 +69,12 @@ def execute_process(command):
 
 def kubectl_patch(name, image, version):
     path = [
-        {"op": "replace", "path": "/metadata/labels/version",
-         "value": version},
-        {"op": "replace", "path": "/spec/template/metadata/labels/version",
-         "value": version},
-        {"op": "replace", "path": "/spec/template/spec/containers/0/image",
-         "value": image + ":" + version}
+        {'op': 'replace', 'path': '/metadata/labels/version',
+         'value': version},
+        {'op': 'replace', 'path': '/spec/template/metadata/labels/version',
+         'value': version},
+        {'op': 'replace', 'path': '/spec/template/spec/containers/0/image',
+         'value': image + ':' + version}
     ]
 
     execute_process(
@@ -110,15 +110,14 @@ def deploy_airflow(name, image_suffix):
         service['spec']['template']['metadata']['labels']['version'] = version
         service['spec']['template']['spec']['containers'][0][
             'image'] = repo + '/airflow-' + image_suffix + ':' + version
-
     execute_with_yaml('k8s/airflow-' + name + '-deploy.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
-                      ,)
+                      )
 
 
 def deploy_upgradedb():
     def apply_changes(service):
-        service['metadata']['name'] = "airflow-upgrade-" + version
+        service['metadata']['name'] = 'airflow-upgrade-' + version
         service['metadata']['namespace'] = namespace
         service['spec']['template']['spec']['containers'][0][
             'image'] = repo + '/airflow-master:' + version
@@ -130,7 +129,7 @@ def deploy_upgradedb():
 
 def deploy_initdb():
     def apply_changes(service):
-        service['metadata']['name'] = "airflow-initdb-" + version
+        service['metadata']['name'] = 'airflow-initdb-' + version
         service['metadata']['namespace'] = namespace
         service['spec']['template']['spec']['containers'][0][
             'image'] = repo + '/airflow-master:' + version
@@ -144,6 +143,7 @@ def service(service_name):
     def apply_changes(service):
         service['metadata']['namespace'] = namespace
 
+    print('Serving {}'.format(service_name))
     execute_with_yaml('k8s/service-' + service_name + '.yaml',
                       ['kubectl', 'create', '--namespace', namespace, '-f', '-'],
                       apply_changes)
@@ -241,56 +241,60 @@ def kubectl_create_namespace():
 def create_service_account(key_file):
     execute_process(
         ['kubectl', 'create', 'secret', 'generic', 'service-account', '--namespace',
-         namespace, '--from-file', "service-account.json=" + key_file])
+         namespace, '--from-file', 'service-account.json=' + key_file])
 
 
-
-print "Airflow for Google Cloud"
-print
+print('Airflow for Google Cloud\n')
 environment = None
 settings = load_settings()
 version_public = load_versions_public()
 version_private = load_versions_private()
 
-print str(version_public)
-print str(version_private)
+print(str(version_public))
+print(str(version_private))
 if version_private is None:
     repo = 'b.gcr.io/airflow-gcp'
     version = version_public['public']['version']
-    print "Using public repo"
-    print repo + ":" + version
+    print('Using public repo')
+    print(repo + ':' + version)
 else:
     repo = version_private['private']['repo']
     version = version_private['private']['version']
-    print "Using private repo"
-    print repo + ":" + version
+    print('Using private repo')
+    print(repo + ':' + version)
 
 while environment is None:
-    print "Please select on of the environments to setup:"
+    print('Please select on of the environments to setup:')
     for env in settings['environments']:
-        print '- ' + env['name']
-    environment_name = raw_input("Environment: ")
+        print('- ' + env['name'])
+    environment_name = raw_input('Environment: ')
     environment = get_environment_from()
 namespace = environment['namespace']
 
-print
-print "Make sure you met the pre-requirement and pre-setup. Consult the README file."
-print "This setup procedure is not really forgiving."
-print
-print "1) Setup a new Airflow (version: " + version + ")"
-print "2) Upgrade Airflow (version: " + version + ")"
-print "9) Delete Airflow"
-print "0) Help"
+menu = """
+Make sure you met the pre-requirement and pre-setup. Consult the README file.
+This setup procedure is not really forgiving
 
-what = raw_input("Enter your choose: ")
+1) Setup a new Airflow (version: {version})
+2) Upgrade Airflow (version: {version})
+9) Delete Airflow
+0) Help
+""".format(version=version)
+print(menu)
+
+what = raw_input('Enter your choose: ')
 
 if what == '0':
-    print "Install/Upgrade Airflow for Google Cloud on a GKE cluster"
+    print('Install/Upgrade Airflow for Google Cloud on a GKE cluster')
 elif what == '1':
     kubectl_create_namespace()
+    print('Created namespce.')
     kubectl_airflow_config_settings('create')
+    print('Created Airflow confiuration settings.')
     create_service_account(environment['service-accounts'][0]['path'])
+    print('Created service acccount.')
     create_airflow_config()
+    print('Deployed Airflow.')
 
     service('webserver')
     service('redis')
@@ -300,10 +304,10 @@ elif what == '1':
     deploy_db()
     deploy_sync()
 
-    what = raw_input("Do you want to create a database (Y to create)? ")
+    what = raw_input('Do you want to create a database (Y to create)? ')
     if what == 'Y':
         deploy_initdb()
-        what = raw_input("ENTER if database is created. ")
+        what = raw_input('ENTER if database is created. ')
 
     deploy_airflow('worker', 'worker')
     deploy_airflow('webserver', 'master')
@@ -311,31 +315,31 @@ elif what == '1':
 elif what == '2':
     kubectl_airflow_config_settings('apply')
 
-    what = raw_input("Do you want to upgrade the database (Y to create)? ")
+    what = raw_input('Do you want to upgrade the database (Y to create)? ')
     if what == 'Y':
         deploy_upgradedb()
-        what = raw_input("ENTER if database is created. ")
+        what = raw_input('ENTER if database is created. ')
 
-    kubectl_patch("airflow-webserver",
-                  repo + "/airflow-master",
+    kubectl_patch('airflow-webserver',
+                  repo + '/airflow-master',
                   version)
-    kubectl_patch("airflow-scheduler",
-                  repo + "/airflow-master",
+    kubectl_patch('airflow-scheduler',
+                  repo + '/airflow-master',
                   version)
-    kubectl_patch("airflow-worker", repo + "/airflow-worker",
+    kubectl_patch('airflow-worker', repo + '/airflow-worker',
                   version)
 elif what == '9':
-    kubectl_delete("deployment", "airflow-webserver")
-    kubectl_delete("deployment", "airflow-worker")
-    kubectl_delete("deployment", "airflow-scheduler")
-    kubectl_delete("deployment", "airflow-db")
-    kubectl_delete("deployment", "airflow-redis")
-    kubectl_delete("deployment", "airflow-sync")
-    kubectl_delete("services", "airflow-redis")
-    kubectl_delete("services", "airflow-db")
-    #kubectl_delete("services", "airflow")
-    kubectl_delete("configmap", "airflow-settings")
-    kubectl_delete("configmap", "airflow-config")
-    kubectl_delete("secrets", "service-account")
+    kubectl_delete('deployment', 'airflow-webserver')
+    kubectl_delete('deployment', 'airflow-worker')
+    kubectl_delete('deployment', 'airflow-scheduler')
+    kubectl_delete('deployment', 'airflow-db')
+    kubectl_delete('deployment', 'airflow-redis')
+    kubectl_delete('deployment', 'airflow-sync')
+    kubectl_delete('services', 'airflow-redis')
+    kubectl_delete('services', 'airflow-db')
+    # kubectl_delete('services', 'airflow')
+    kubectl_delete('configmap', 'airflow-settings')
+    kubectl_delete('configmap', 'airflow-config')
+    kubectl_delete('secrets', 'service-account')
 else:
-    print "Nothing todo, exiting"
+    print('Nothing todo, exiting')
