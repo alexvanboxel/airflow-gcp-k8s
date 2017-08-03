@@ -1,9 +1,9 @@
 # airflow-gcp-k8s
 
-This script will install a *Google Cloud* optimised version of Airflow on your Google 
+This script will install a *Google Cloud* optimized version of Airflow on your Google
 Container Engine. The images are pulled from a public accessible Container Registry.
 
-It has the ability to generate several versions (example: production + staging) on the 
+It has the ability to generate several versions (example: production + staging) on the
 same Kubernetes cluster.
 
 It will in dags and plugins from your own cloud git repository and binaries for gcs. (
@@ -17,19 +17,20 @@ Airflow)
 
 ## Requirements
 
-### GCP minimum requirements
+### GCP Minimum Requirements
 
 - Cloud SQL
--- admin user with remote access
+    - admin user with remote access
 - GKE Cluster
 - GSuite for authentication
-- Google Git Source repository 
+- Google Git Source repository
 
-### Local requirements
+### Local Requirements
 
 - GCloud SDK
--- Kubernetes component installed
+    - Kubernetes component installed
 - Python
+    - PyYAML
 
 verify that you can connect by doing: "kubectl proxy"
 
@@ -37,8 +38,8 @@ verify that you can connect by doing: "kubectl proxy"
 
 ### Source Repo
 
-You will need 2 source repo's. One for your DAGS and on for your PLUGINS. If you name
-them ```airflow-dag``` and ```airflow-plugin``` you don't need to change the settings
+You will need 2 source repositories. One for your DAGS and one for your PLUGINS. If you name
+them ```airflow-dag``` and ```airflow-plugin``` you won't need to change the settings
 in the settings file later (these are the default).
 
 A good strategy is to have production pull in ```master``` and a staging environment
@@ -47,12 +48,12 @@ A good strategy is to have production pull in ```master``` and a staging environ
 ### Staging Bucket
 
 This staging bucket will be downloaded to the Airflow worker. Here you can put your
-binary dataflows. Create it, and remember the location, you will have to specify it in 
+binary dataflows. Create it, and remember the location, you will have to specify it in
 settings.
 
 ### Service Account
 
-Create a service account JSON file, and store it on the system you will run this script
+Create a service account JSON file and store it on the system you will run this script
 from.
 
 ### OAuth Key
@@ -97,9 +98,9 @@ auth:
   domain: example.com
 ```
 
-Per domain, fill in the needed information: 
+Per domain, fill in the needed information:
 
-Remark on service key: This is the path to the JSON key on your system. It will be 
+Remark on service key: This is the path to the JSON key on your system. It will be
 uploaded to K8S.
 
 ```
